@@ -3,15 +3,16 @@ import { Site } from '../types';
 const SHEET_STORAGE_KEY = 'gakbbul_sheet_url';
 const CACHE_STORAGE_KEY = 'gakbbul_cached_sites';
 
-// 기본 샘플 스프레드시트 또는 기본값
-export const DEFAULT_SHEET_URL = '';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1LMLclxIx5JJwlGwh1hyFYtvRUG_m5A-2HvjnwvQsjbY/edit?usp=sharing';
 
 /**
- * 로컬스토리지에서 저장된 스프레드시트 URL을 가져옵니다.
+ * 로컬스토리지에서 저장된 스프레드시트 URL을 가져옵니다. (없으면 기본 스프레드시트 반환)
  */
 export const getSavedSheetUrl = (): string => {
-  return localStorage.getItem(SHEET_STORAGE_KEY) || DEFAULT_SHEET_URL;
+  const saved = localStorage.getItem(SHEET_STORAGE_KEY);
+  return saved && saved.trim() ? saved.trim() : DEFAULT_SHEET_URL;
 };
+
 
 /**
  * 스프레드시트 URL을 로컬스토리지에 저장합니다.

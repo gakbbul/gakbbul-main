@@ -94,16 +94,19 @@
       } from 'lucide-react';
 
       // --- SHEET STORAGE CONSTANTS ---
+      const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1LMLclxIx5JJwlGwh1hyFYtvRUG_m5A-2HvjnwvQsjbY/edit?usp=sharing';
       const SHEET_STORAGE_KEY = 'gakbbul_sheet_url';
       const CACHE_STORAGE_KEY = 'gakbbul_cached_sites';
 
       const getSavedSheetUrl = () => {
-        return localStorage.getItem(SHEET_STORAGE_KEY) || '';
+        const saved = localStorage.getItem(SHEET_STORAGE_KEY);
+        return saved && saved.trim() ? saved.trim() : DEFAULT_SHEET_URL;
       };
 
       const saveSheetUrl = (url) => {
         localStorage.setItem(SHEET_STORAGE_KEY, (url || '').trim());
       };
+
 
       const getCachedSites = () => {
         try {
@@ -690,16 +693,15 @@
                   </div>
                   <h2 className="text-xl font-bold text-white mb-2">등록된 웹사이트가 없습니다</h2>
                   <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                    구글 스프레드시트 링크를 등록하여<br />
-                    <code className="text-blue-400 bg-slate-900 px-2 py-0.5 rounded text-xs">[제목] [부제목] [설명] [사이트주소]</code><br />
-                    형식으로 웹사이트 목록을 관리해보세요.
+                    구글 스프레드시트 링크가 기본 연동되었습니다.<br />
+                    스프레드시트에 사이트를 추가하시면 이곳에 실시간으로 표시됩니다.
                   </p>
                   <button
                     onClick={() => setIsAdminModalOpen(true)}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 text-sm"
                   >
                     <Settings size={18} />
-                    구글 스프레드시트 연동하기
+                    스프레드시트 열기 및 관리
                   </button>
                 </div>
               )}
