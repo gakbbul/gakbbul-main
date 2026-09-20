@@ -1,10 +1,35 @@
 import React from 'react';
-import { ExternalLink, Globe, Tag } from 'lucide-react';
+import { ExternalLink, Globe, Tag, Folder } from 'lucide-react';
 import { Site } from '../types';
 
 interface SiteCardProps {
   site: Site;
 }
+
+const CATEGORY_COLORS = [
+  { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  { bg: 'bg-purple-500/15', text: 'text-purple-400', border: 'border-purple-500/30' },
+  { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30' },
+  { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+  { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30' },
+  { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30' },
+  { bg: 'bg-teal-500/15', text: 'text-teal-400', border: 'border-teal-500/30' },
+  { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
+  { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
+  { bg: 'bg-lime-500/15', text: 'text-lime-400', border: 'border-lime-500/30' },
+  { bg: 'bg-sky-500/15', text: 'text-sky-400', border: 'border-sky-500/30' },
+  { bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30' },
+];
+
+export const getCategoryColor = (category?: string) => {
+  if (!category) return CATEGORY_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) {
+    hash = category.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % CATEGORY_COLORS.length;
+  return CATEGORY_COLORS[index];
+};
 
 export const SiteCard: React.FC<SiteCardProps> = ({ site }) => {
   const handleCardClick = () => {
@@ -14,6 +39,7 @@ export const SiteCard: React.FC<SiteCardProps> = ({ site }) => {
   };
 
   const isDev = site.subtitle ? site.subtitle.includes('개발중') : false;
+  const categoryColor = site.category ? getCategoryColor(site.category) : null;
 
   return (
     <div 
@@ -34,9 +60,9 @@ export const SiteCard: React.FC<SiteCardProps> = ({ site }) => {
               </span>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {site.subtitle && (
-                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border max-w-[150px] truncate ${
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border max-w-[130px] truncate ${
                   isDev 
                     ? 'bg-red-500/15 text-red-400 border-red-500/30' 
                     : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
@@ -45,7 +71,13 @@ export const SiteCard: React.FC<SiteCardProps> = ({ site }) => {
                   <span className="truncate">{site.subtitle}</span>
                 </span>
               )}
-              <ExternalLink size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0" />
+              {site.category && categoryColor && (
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border max-w-[130px] truncate ${categoryColor.bg} ${categoryColor.text} ${categoryColor.border}`}>
+                  <Folder size={10} />
+                  <span className="truncate">{site.category}</span>
+                </span>
+              )}
+              <ExternalLink size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0 ml-0.5" />
             </div>
           </div>
 

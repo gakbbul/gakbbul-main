@@ -63,6 +63,7 @@ export const App: React.FC = () => {
     return (
       (site.title && site.title.toLowerCase().includes(query)) ||
       (site.subtitle && site.subtitle.toLowerCase().includes(query)) ||
+      (site.category && site.category.toLowerCase().includes(query)) ||
       (site.description && site.description.toLowerCase().includes(query)) ||
       (site.name && site.name.toLowerCase().includes(query)) ||
       (site.url && site.url.toLowerCase().includes(query))
@@ -88,7 +89,7 @@ export const App: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="제목, 부제목, 설명, 사이트 검색..."
+                placeholder="제목, 부제목, 분류, 설명, 사이트 검색..."
                 className="w-full bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-blue-500/60 focus:bg-slate-900 transition-all placeholder:text-slate-500"
               />
             </div>

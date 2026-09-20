@@ -153,7 +153,7 @@ const extractHostname = (url: string): string => {
 
 /**
  * CSV 2차원 배열을 Site 객체 목록으로 변환합니다.
- * 스프레드시트 컬럼 형태: [제목] [부제목] [설명] [사이트주소]
+ * 스프레드시트 컬럼 형태: [A: 제목] [B: 부제목] [C: 설명] [D: 사이트주소] [E: 분류]
  */
 export const parseRowsToSites = (rows: string[][]): Site[] => {
   if (rows.length === 0) return [];
@@ -163,13 +163,15 @@ export const parseRowsToSites = (rows: string[][]): Site[] => {
   let subtitleCol = 1;
   let descCol = 2;
   let urlCol = 3;
+  let categoryCol = 4;
 
   // 첫 번째 행이 헤더인지 감지
   const firstRow = rows[0].map(c => c.toLowerCase().trim());
   const hasHeaderKeywords = firstRow.some(c => 
     c.includes('제목') || c.includes('title') || 
     c.includes('설명') || c.includes('desc') || 
-    c.includes('주소') || c.includes('url') || c.includes('link') || c.includes('부제목') || c.includes('sub')
+    c.includes('주소') || c.includes('url') || c.includes('link') || c.includes('부제목') || c.includes('sub') ||
+    c.includes('분류') || c.includes('category') || c.includes('카테고리') || c.includes('그룹')
   );
 
   if (hasHeaderKeywords) {
@@ -177,7 +179,9 @@ export const parseRowsToSites = (rows: string[][]): Site[] => {
 
     // 동적 헤더 인덱스 매칭 시도
     firstRow.forEach((col, idx) => {
-      if (col.includes('부제목') || col.includes('subtitle') || col.includes('소제목') || col.includes('태그')) {
+      if (col.includes('분류') || col.includes('category') || col.includes('카테고리') || col.includes('그룹')) {
+        categoryCol = idx;
+      } else if (col.includes('부제목') || col.includes('subtitle') || col.includes('소제목') || col.includes('태그')) {
         subtitleCol = idx;
       } else if (col.includes('제목') || col.includes('title') || col.includes('이름')) {
         titleCol = idx;
@@ -199,6 +203,7 @@ export const parseRowsToSites = (rows: string[][]): Site[] => {
     const subtitle = (row[subtitleCol] || '').trim();
     const description = (row[descCol] || '').trim();
     const rawUrl = (row[urlCol] || '').trim();
+    const category = categoryCol < row.length ? (row[categoryCol] || '').trim() : '';
 
     // 제목과 URL이 둘 다 없으면 무시
     if (!title && !rawUrl) continue;
@@ -209,6 +214,7 @@ export const parseRowsToSites = (rows: string[][]): Site[] => {
       id: `site-${i}-${Date.now()}`,
       title: title || hostname,
       subtitle: subtitle || undefined,
+      category: category || undefined,
       description: description || '등록된 설명이 없습니다.',
       url: rawUrl,
       name: hostname,
