@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Settings, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { Site } from './types';
 import { 
+  DEFAULT_SHEET_URL,
   getSavedSheetUrl, 
   getCachedSites, 
   fetchSitesFromGoogleSheet 
 } from './services/sheetService';
 import { SiteCard } from './components/SiteCard';
-import { AdminModal } from './components/AdminModal';
 
 export const App: React.FC = () => {
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,7 +21,6 @@ export const App: React.FC = () => {
     const sheetUrl = (customUrl !== undefined ? customUrl : getSavedSheetUrl()).trim();
     
     if (!sheetUrl) {
-      // 스프레드시트 URL이 없을 때
       const cached = getCachedSites();
       setSites(cached);
       setErrorMessage(null);
@@ -40,7 +38,6 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to load sheet:', err);
       setErrorMessage(err?.message || '스프레드시트 데이터를 불러오지 못했습니다.');
-      // 실패 시 캐시된 데이터가 있다면 유지
       const cached = getCachedSites();
       if (cached.length > 0 && sites.length === 0) {
         setSites(cached);
@@ -52,12 +49,10 @@ export const App: React.FC = () => {
 
   // Initial Load
   useEffect(() => {
-    // 1. 캐시된 데이터 우선 즉시 표시
     const cached = getCachedSites();
     if (cached.length > 0) {
       setSites(cached);
     }
-    // 2. 최신 스프레드시트 데이터 페치
     loadSites();
   }, []);
 
@@ -110,13 +105,15 @@ export const App: React.FC = () => {
               <RefreshCw size={18} className={loading ? 'animate-spin text-blue-400' : ''} />
             </button>
 
-            <button 
-              onClick={() => setIsAdminModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-200 bg-slate-900/80 hover:bg-slate-800 hover:text-white border border-slate-700/80 rounded-xl transition-all shadow-sm"
+            <a
+              href={DEFAULT_SHEET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="구글 스프레드시트 열기"
+              className="p-2.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800/80 rounded-xl border border-transparent hover:border-slate-700 transition-all flex items-center justify-center"
             >
-              <Settings size={18} className="text-blue-400" />
-              <span className="hidden sm:inline">사이트 관리</span>
-            </button>
+              <FileSpreadsheet size={18} />
+            </a>
           </div>
         </div>
       </header>
@@ -131,12 +128,6 @@ export const App: React.FC = () => {
               <div className="font-semibold text-red-200">스프레드시트 연동 알림</div>
               <div className="text-xs text-red-300/90 mt-1">{errorMessage}</div>
             </div>
-            <button
-              onClick={() => setIsAdminModalOpen(true)}
-              className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg text-xs font-semibold border border-red-500/30 transition-colors"
-            >
-              설정 열기
-            </button>
           </div>
         )}
 
@@ -148,17 +139,18 @@ export const App: React.FC = () => {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">등록된 웹사이트가 없습니다</h2>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              구글 스프레드시트 링크를 등록하여<br />
-              <code className="text-blue-400 bg-slate-900 px-2 py-0.5 rounded text-xs">[제목] [부제목] [설명] [사이트주소]</code><br />
-              형식으로 웹사이트 목록을 관리해보세요.
+              구글 스프레드시트 링크가 기본 연동되었습니다.<br />
+              스프레드시트에 사이트를 추가하시면 이곳에 실시간으로 표시됩니다.
             </p>
-            <button
-              onClick={() => setIsAdminModalOpen(true)}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 text-sm"
+            <a
+              href={DEFAULT_SHEET_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2 text-sm"
             >
-              <Settings size={18} />
-              구글 스프레드시트 연동하기
-            </button>
+              <FileSpreadsheet size={18} />
+              구글 스프레드시트 열기
+            </a>
           </div>
         )}
 
@@ -197,15 +189,6 @@ export const App: React.FC = () => {
           )}
         </div>
       </footer>
-
-      {/* Modals */}
-      <AdminModal 
-        isOpen={isAdminModalOpen} 
-        onClose={() => setIsAdminModalOpen(false)} 
-        sites={sites}
-        onRefresh={loadSites}
-        isLoading={loading}
-      />
     </div>
   );
 };
