@@ -1,14 +1,9 @@
 export interface Site {
   id: string;
-  url: string;
   title: string;
-  name: string; // Extracted hostname
+  subtitle?: string;
   description: string;
-  createdAt: number;
-}
-
-export interface SiteFormData {
   url: string;
-  title: string;
-  description: string;
+  name?: string; // Extracted hostname/domain
+  createdAt?: number;
 }
