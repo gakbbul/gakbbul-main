@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GAKBBUL - Private Hub</title>
+    <title>GAKBBUL - Link Hub Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Babel Standalone for in-browser compilation -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script>
       tailwind.config = {
@@ -22,7 +22,7 @@
             colors: {
               slate: {
                 850: '#152033',
-                950: '#020617', // Darker base
+                950: '#020617',
               }
             }
           },
@@ -31,23 +31,23 @@
     </script>
     <style>
       body {
-        background-color: #0f172a; /* Slate 900 base */
+        background-color: #020617;
         color: #f8fafc;
         overflow-x: hidden;
       }
-      /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
         width: 8px;
+        height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #0f172a;
+        background: #020617;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155;
+        background: #1e293b;
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569;
+        background: #334155;
       }
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
@@ -63,15 +63,9 @@
     <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
-    "firebase/app": "https://aistudiocdn.com/firebase@^12.6.0/app",
-    "firebase/firestore": "https://aistudiocdn.com/firebase@^12.6.0/firestore",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0"
   }
 }
 </script>
@@ -80,132 +74,239 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-      import React, { useState, useEffect } from 'react';
+      import React, { useState, useEffect, useCallback } from 'react';
       import ReactDOM from 'react-dom/client';
-      import { initializeApp } from 'firebase/app';
-      import { 
-        getFirestore, 
-        collection, 
-        addDoc, 
-        deleteDoc, 
-        doc, 
-        onSnapshot, 
-        query, 
-        orderBy 
-      } from 'firebase/firestore';
       import { 
         ExternalLink, 
         Globe, 
         Search, 
-        Lock, 
         Settings, 
         X, 
-        Trash2, 
-        Plus, 
         Sparkles, 
-        Loader2,
-        CheckCircle2,
+        RefreshCw,
+        Tag,
+        Table,
+        Info,
+        Check,
+        Link2,
+        FileSpreadsheet,
         AlertCircle
       } from 'lucide-react';
-      import { GoogleGenAI } from '@google/genai';
 
-      // --- ENVIRONMENT SETUP ---
-      // GitHub Pages와 같은 정적 호스팅 환경을 위한 process.env 폴리필
-      if (typeof process === 'undefined') {
-        window.process = { env: { API_KEY: '' } }; // 여기에 실제 API 키를 넣어야 빌드 과정 없이 작동합니다.
-      }
+      // --- SHEET STORAGE CONSTANTS ---
+      const SHEET_STORAGE_KEY = 'gakbbul_sheet_url';
+      const CACHE_STORAGE_KEY = 'gakbbul_cached_sites';
 
-      // --- CONSTANTS ---
-      const APP_PASSWORD = "121212";
-      const ADMIN_PASSWORD = "minchan1210";
-
-      const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyBBBS6gZ_DfFilW_nl_MADO5x3fBAtkONw",
-        authDomain: "gakbbul.firebaseapp.com",
-        projectId: "gakbbul",
-        storageBucket: "gakbbul.firebasestorage.app",
-        messagingSenderId: "dummy-sender-id", 
-        appId: "1:dummy:web:dummy"
+      const getSavedSheetUrl = () => {
+        return localStorage.getItem(SHEET_STORAGE_KEY) || '';
       };
 
-      // --- SERVICES: Firebase ---
-      const app = initializeApp(FIREBASE_CONFIG);
-      const db = getFirestore(app);
-      const SITES_COLLECTION = "sites";
+      const saveSheetUrl = (url) => {
+        localStorage.setItem(SHEET_STORAGE_KEY, (url || '').trim());
+      };
 
-      const subscribeToSites = (onUpdate, onError) => {
-        const q = query(collection(db, SITES_COLLECTION), orderBy("createdAt", "desc"));
-        return onSnapshot(q, (snapshot) => {
-          const sites = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          onUpdate(sites);
-        }, (error) => {
-          console.error("Firebase Snapshot Error:", error);
-          if (onError) onError(error);
+      const getCachedSites = () => {
+        try {
+          const cached = localStorage.getItem(CACHE_STORAGE_KEY);
+          return cached ? JSON.parse(cached) : [];
+        } catch (e) {
+          return [];
+        }
+      };
+
+      const cacheSites = (sites) => {
+        try {
+          localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(sites));
+        } catch (e) {}
+      };
+
+      // --- SHEET CONVERTER & CSV PARSER ---
+      const convertToCsvUrl = (url) => {
+        const trimmed = (url || '').trim();
+        if (!trimmed) return '';
+
+        if (trimmed.includes('format=csv') || trimmed.includes('output=csv')) {
+          return trimmed;
+        }
+
+        if (trimmed.includes('/pubhtml')) {
+          return trimmed.replace('/pubhtml', '/pub?output=csv');
+        }
+
+        const docIdMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (docIdMatch && docIdMatch[1]) {
+          const docId = docIdMatch[1];
+          const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
+          const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '';
+          return `https://docs.google.com/spreadsheets/d/${docId}/gviz/tq?tqx=out:csv${gidParam}`;
+        }
+
+        return trimmed;
+      };
+
+      const parseCsv = (csvText) => {
+        const rows = [];
+        let currentRow = [];
+        let currentField = '';
+        let insideQuotes = false;
+
+        for (let i = 0; i < csvText.length; i++) {
+          const char = csvText[i];
+          const nextChar = csvText[i + 1];
+
+          if (insideQuotes) {
+            if (char === '"' && nextChar === '"') {
+              currentField += '"';
+              i++;
+            } else if (char === '"') {
+              insideQuotes = false;
+            } else {
+              currentField += char;
+            }
+          } else {
+            if (char === '"') {
+              insideQuotes = true;
+            } else if (char === ',') {
+              currentRow.push(currentField.trim());
+              currentField = '';
+            } else if (char === '\r') {
+              if (nextChar === '\n') i++;
+              currentRow.push(currentField.trim());
+              if (currentRow.some(c => c.length > 0)) {
+                rows.push(currentRow);
+              }
+              currentRow = [];
+              currentField = '';
+            } else if (char === '\n') {
+              currentRow.push(currentField.trim());
+              if (currentRow.some(c => c.length > 0)) {
+                rows.push(currentRow);
+              }
+              currentRow = [];
+              currentField = '';
+            } else {
+              currentField += char;
+            }
+          }
+        }
+
+        if (currentField || currentRow.length > 0) {
+          currentRow.push(currentField.trim());
+          if (currentRow.some(c => c.length > 0)) {
+            rows.push(currentRow);
+          }
+        }
+
+        return rows;
+      };
+
+      const extractHostname = (url) => {
+        try {
+          const formatted = url.startsWith('http://') || url.startsWith('https://') 
+            ? url 
+            : `https://${url}`;
+          const parsed = new URL(formatted);
+          return parsed.hostname.replace(/^www\./, '');
+        } catch {
+          return url || 'LINK';
+        }
+      };
+
+      const parseRowsToSites = (rows) => {
+        if (!rows || rows.length === 0) return [];
+
+        let startIndex = 0;
+        let titleCol = 0;
+        let subtitleCol = 1;
+        let descCol = 2;
+        let urlCol = 3;
+
+        const firstRow = rows[0].map(c => (c || '').toLowerCase().trim());
+        const hasHeader = firstRow.some(c => 
+          c.includes('제목') || c.includes('title') || 
+          c.includes('설명') || c.includes('desc') || 
+          c.includes('주소') || c.includes('url') || c.includes('link') || c.includes('부제목') || c.includes('sub')
+        );
+
+        if (hasHeader) {
+          startIndex = 1;
+          firstRow.forEach((col, idx) => {
+            if (col.includes('부제목') || col.includes('subtitle') || col.includes('소제목') || col.includes('태그')) {
+              subtitleCol = idx;
+            } else if (col.includes('제목') || col.includes('title') || col.includes('이름')) {
+              titleCol = idx;
+            } else if (col.includes('설명') || col.includes('desc') || col.includes('info') || col.includes('내용')) {
+              descCol = idx;
+            } else if (col.includes('주소') || col.includes('url') || col.includes('link') || col.includes('링크') || col.includes('사이트')) {
+              urlCol = idx;
+            }
+          });
+        }
+
+        const sites = [];
+        for (let i = startIndex; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0) continue;
+
+          const title = (row[titleCol] || '').trim();
+          const subtitle = (row[subtitleCol] || '').trim();
+          const description = (row[descCol] || '').trim();
+          const rawUrl = (row[urlCol] || '').trim();
+
+          if (!title && !rawUrl) continue;
+
+          const hostname = extractHostname(rawUrl || title);
+
+          sites.push({
+            id: `site-${i}-${Date.now()}`,
+            title: title || hostname,
+            subtitle: subtitle || undefined,
+            description: description || '등록된 설명이 없습니다.',
+            url: rawUrl,
+            name: hostname,
+            createdAt: Date.now() - i * 1000,
+          });
+        }
+
+        return sites;
+      };
+
+      const fetchSitesFromGoogleSheet = async (sheetUrl) => {
+        const csvUrl = convertToCsvUrl(sheetUrl);
+        if (!csvUrl) {
+          throw new Error('유효한 구글 스프레드시트 URL이 아닙니다.');
+        }
+
+        const response = await fetch(csvUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/csv, text/plain, */*'
+          }
         });
-      };
 
-      const addSite = async (data) => {
-        try {
-          const urlObj = new URL(data.url.startsWith('http') ? data.url : `https://${data.url}`);
-          const name = urlObj.hostname.replace('www.', '');
-          
-          await addDoc(collection(db, SITES_COLLECTION), {
-            ...data,
-            name,
-            createdAt: Date.now()
-          });
-          console.log("Site added successfully to Firebase");
-        } catch (error) {
-          console.error("Error adding site:", error);
-          throw error;
+        if (!response.ok) {
+          throw new Error(`스프레드시트를 불러오지 못했습니다 (상태: ${response.status}). 스프레드시트 공유 권한(링크가 있는 모든 사용자 - 뷰어)을 확인해주세요.`);
         }
-      };
 
-      const deleteSite = async (id) => {
-        try {
-          await deleteDoc(doc(db, SITES_COLLECTION, id));
-        } catch (error) {
-          console.error("Error deleting site:", error);
-          throw error;
+        const csvText = await response.text();
+        if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
+          throw new Error('스프레드시트에 접근할 수 없습니다. 공유 설정을 "링크가 있는 모든 사용자 - 뷰어"로 변경해주세요.');
         }
-      };
 
-      // --- SERVICES: Gemini ---
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const rows = parseCsv(csvText);
+        const sites = parseRowsToSites(rows);
 
-      const generateSiteDescription = async (title, url) => {
-        try {
-          const prompt = `
-            웹사이트 정보:
-            URL: ${url}
-            제목: ${title}
-
-            요청사항:
-            이 웹사이트에 대한 짧고 매력적이며 전문적인 설명을 한국어로 작성해주세요.
-            제약사항:
-            1. 최대 2문장으로 작성할 것.
-            2. 이모지는 사용하지 말 것.
-            3. 명확하고 간결하게 작성할 것.
-          `;
-
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-          });
-
-          return response.text.trim();
-        } catch (error) {
-          console.error("Gemini API Error:", error);
-          return "설명을 생성하는 중 오류가 발생했습니다. 직접 입력해주세요.";
+        if (sites.length > 0) {
+          cacheSites(sites);
         }
+
+        return sites;
       };
 
       // --- COMPONENTS: SiteCard ---
       const SiteCard = ({ site }) => {
         const handleCardClick = () => {
+          if (!site.url) return;
           const targetUrl = site.url.startsWith('http') ? site.url : `https://${site.url}`;
           window.open(targetUrl, '_blank', 'noopener,noreferrer');
         };
@@ -213,95 +314,79 @@
         return (
           <div 
             onClick={handleCardClick}
-            className="group relative flex flex-col justify-between h-48 p-5 bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-2xl cursor-pointer hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden"
+            className="group relative flex flex-col justify-between p-5 bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl cursor-pointer hover:border-blue-500/50 hover:bg-slate-900/90 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden min-h-[180px]"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-blue-500/10 transition-colors" />
+            <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none group-hover:bg-blue-500/15 transition-all duration-500" />
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2 text-slate-400">
-                  <Globe size={14} />
-                  <span className="text-xs font-medium tracking-wide uppercase opacity-70 truncate max-w-[150px]">
-                    {site.name}
-                  </span>
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="flex items-center space-x-2 text-slate-400 overflow-hidden">
+                    <Globe size={14} className="text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-medium tracking-wider uppercase text-slate-400 truncate max-w-[140px]">
+                      {site.name || 'LINK'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {site.subtitle && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 max-w-[150px] truncate">
+                        <Tag size={10} />
+                        <span className="truncate">{site.subtitle}</span>
+                      </span>
+                    )}
+                    <ExternalLink size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0" />
+                  </div>
                 </div>
-                <ExternalLink size={16} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
+
+                <h3 className="text-lg font-bold text-slate-100 mb-2 leading-snug line-clamp-1 group-hover:text-blue-300 transition-colors">
+                  {site.title}
+                </h3>
+
+                <p className="text-sm text-slate-400 leading-relaxed line-clamp-3 font-normal">
+                  {site.description}
+                </p>
               </div>
 
-              <h3 className="text-lg font-bold text-slate-100 mb-2 leading-tight line-clamp-1 group-hover:text-blue-100 transition-colors">
-                {site.title}
-              </h3>
-
-              <p className="text-sm text-slate-400 leading-relaxed line-clamp-3">
-                {site.description}
-              </p>
+              {site.url && (
+                <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-500 group-hover:text-slate-400 transition-colors">
+                  <span className="truncate max-w-[200px]">{site.url}</span>
+                  <span className="text-blue-400/80 group-hover:text-blue-400 font-medium">방문하기 →</span>
+                </div>
+              )}
             </div>
           </div>
         );
       };
 
       // --- COMPONENTS: AdminModal ---
-      const AdminModal = ({ isOpen, onClose, sites, isDbConnected }) => {
-        const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
-        const [passwordInput, setPasswordInput] = useState('');
-        const [error, setError] = useState('');
-        
-        const [formData, setFormData] = useState({ url: '', title: '', description: '' });
-        const [isGenerating, setIsGenerating] = useState(false);
-        const [isSubmitting, setIsSubmitting] = useState(false);
+      const AdminModal = ({ isOpen, onClose, sites, onRefresh, isLoading }) => {
+        const [sheetUrlInput, setSheetUrlInput] = useState('');
+        const [savedSuccess, setSavedSuccess] = useState(false);
+        const [saveError, setSaveError] = useState('');
 
         useEffect(() => {
-          if (!isOpen) {
-            setPasswordInput('');
-            setError('');
+          if (isOpen) {
+            setSheetUrlInput(getSavedSheetUrl());
+            setSavedSuccess(false);
+            setSaveError('');
           }
         }, [isOpen]);
 
-        const handleAuth = (e) => {
+        const handleSaveAndSync = async (e) => {
           e.preventDefault();
-          if (passwordInput === ADMIN_PASSWORD) {
-            setIsAdminUnlocked(true);
-            setError('');
-          } else {
-            setError('비밀번호가 올바르지 않습니다.');
-          }
-        };
+          setSaveError('');
+          setSavedSuccess(false);
 
-        const handleGenerateAI = async () => {
-          if (!formData.url || !formData.title) {
-            alert('URL과 제목을 먼저 입력해주세요.');
-            return;
-          }
-          
-          setIsGenerating(true);
+          const trimmed = sheetUrlInput.trim();
+          saveSheetUrl(trimmed);
+
           try {
-            const description = await generateSiteDescription(formData.title, formData.url);
-            setFormData(prev => ({ ...prev, description }));
-          } finally {
-            setIsGenerating(false);
-          }
-        };
-
-        const handleSubmit = async (e) => {
-          e.preventDefault();
-          if (!formData.url || !formData.title) return;
-
-          setIsSubmitting(true);
-          try {
-            await addSite(formData);
-            setFormData({ url: '', title: '', description: '' }); 
-            alert('사이트가 성공적으로 추가되었습니다.');
+            await onRefresh(trimmed);
+            setSavedSuccess(true);
+            setTimeout(() => setSavedSuccess(false), 3000);
           } catch (err) {
-            console.error(err);
-            alert('사이트 추가 실패: ' + err.message);
-          } finally {
-            setIsSubmitting(false);
-          }
-        };
-
-        const handleDelete = async (id) => {
-          if (window.confirm('정말 삭제하시겠습니까?')) {
-            await deleteSite(id);
+            setSaveError(err?.message || '스프레드시트 동기화에 실패했습니다.');
           }
         };
 
@@ -311,300 +396,357 @@
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
             
-            <div className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex-none flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    {isAdminUnlocked ? '사이트 관리 (Admin)' : '관리자 접근'}
-                  </h2>
-                  {isAdminUnlocked && (
-                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${isDbConnected ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                       {isDbConnected ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                       {isDbConnected ? 'DB 연동됨' : 'DB 연결 끊김'}
-                     </div>
-                  )}
+            <div className="relative bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                    <FileSpreadsheet size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">사이트 목록 관리</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">구글 스프레드시트로 웹사이트 목록을 관리합니다</p>
+                  </div>
                 </div>
-                <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-                  <X size={24} />
+                <button 
+                  onClick={onClose} 
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <X size={20} />
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="flex-1 overflow-hidden">
-                {!isAdminUnlocked ? (
-                  <div className="flex flex-col items-center justify-center h-full space-y-4">
-                    <div className="p-4 bg-slate-800 rounded-full mb-2">
-                      <Lock size={32} className="text-blue-500" />
-                    </div>
-                    <p className="text-slate-400">관리자 비밀번호를 입력하세요.</p>
-                    <form onSubmit={handleAuth} className="w-full max-w-xs space-y-2">
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Sheet URL Form */}
+                <div className="bg-slate-950/60 p-5 rounded-xl border border-slate-800">
+                  <form onSubmit={handleSaveAndSync} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-200 mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Link2 size={16} className="text-blue-400" />
+                          구글 스프레드시트 링크 (뷰어 권한)
+                        </span>
+                        {sheetUrlInput.trim() && (
+                          <a
+                            href={sheetUrlInput.trim()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-normal"
+                          >
+                            스프레드시트 열기 <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </label>
                       <input
-                        type="password"
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors"
-                        placeholder="Password"
-                        autoFocus
+                        type="text"
+                        value={sheetUrlInput}
+                        onChange={(e) => setSheetUrlInput(e.target.value)}
+                        placeholder="https://docs.google.com/spreadsheets/d/..."
+                        className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors placeholder:text-slate-600"
                       />
-                      {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                    </div>
+
+                    {saveError && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs">
+                        {saveError}
+                      </div>
+                    )}
+
+                    {savedSuccess && (
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-2">
+                        <Check size={16} /> 스프레드시트가 성공적으로 저장되고 동기화되었습니다!
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
                       <button
                         type="submit"
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors"
+                        disabled={isLoading}
+                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 text-sm"
                       >
-                        잠금 해제
+                        <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                        {isLoading ? '동기화 중...' : '스프레드시트 저장 및 동기화'}
                       </button>
-                    </form>
-                  </div>
-                ) : (
-                  <div className="flex flex-col lg:flex-row h-full">
-                    {/* Left Column: List */}
-                    <div className="flex-1 flex flex-col h-1/2 lg:h-full border-b lg:border-b-0 lg:border-r border-slate-800">
-                      <div className="p-4 border-b border-slate-800/50 bg-slate-900/30">
-                        <h3 className="text-slate-400 font-medium text-sm">등록된 사이트 ({sites.length})</h3>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                        {sites.length === 0 && (
-                          <div className="text-center py-10 text-slate-600">등록된 사이트가 없습니다.</div>
-                        )}
-                        {sites.map(site => (
-                          <div key={site.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors group">
-                            <div className="flex-1 min-w-0 mr-4">
-                              <div className="font-medium text-slate-200 truncate">{site.title}</div>
-                              <div className="text-xs text-slate-500 truncate">{site.url}</div>
-                            </div>
-                            <button 
-                              onClick={() => handleDelete(site.id)}
-                              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
                     </div>
-
-                    {/* Right Column: Add Form */}
-                    <div className="flex-none lg:w-[400px] bg-slate-950/30 flex flex-col h-1/2 lg:h-full overflow-y-auto custom-scrollbar">
-                      <div className="p-6">
-                        <h3 className="text-slate-200 font-medium mb-6 flex items-center gap-2">
-                          <Plus size={18} className="text-blue-500" /> 새 사이트 추가
-                        </h3>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">URL</label>
-                            <input
-                              type="text"
-                              value={formData.url}
-                              onChange={(e) => setFormData({...formData, url: e.target.value})}
-                              placeholder="example.com"
-                              className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">사이트 제목</label>
-                            <input
-                              type="text"
-                              value={formData.title}
-                              onChange={(e) => setFormData({...formData, title: e.target.value})}
-                              placeholder="My Awesome Site"
-                              className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <label className="block text-xs font-medium text-slate-500">설명</label>
-                              <button
-                                type="button"
-                                onClick={handleGenerateAI}
-                                disabled={isGenerating || !formData.url || !formData.title}
-                                className="text-xs flex items-center gap-1 text-blue-400 hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                AI 자동 생성
-                              </button>
-                            </div>
-                            <textarea
-                              value={formData.description}
-                              onChange={(e) => setFormData({...formData, description: e.target.value})}
-                              placeholder="Gemini가 설명을 작성해줍니다..."
-                              rows={3}
-                              className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                          >
-                            {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-                            추가하기
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // --- COMPONENT: LockScreen ---
-      const LockScreen = ({ onUnlock }) => {
-        const [password, setPassword] = useState('');
-        const [error, setError] = useState('');
-
-        const handleSubmit = (e) => {
-          e.preventDefault();
-          if (password === APP_PASSWORD) {
-            onUnlock();
-          } else {
-            setError('접근 권한이 없습니다.');
-            setPassword('');
-          }
-        };
-
-        return (
-          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-md bg-slate-900/50 border border-slate-800 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
-              <div className="flex flex-col items-center mb-8">
-                <div className="p-4 bg-slate-800 rounded-full mb-4 ring-1 ring-slate-700">
-                  <Lock size={40} className="text-blue-500" />
+                  </form>
                 </div>
-                <h1 className="text-2xl font-bold text-white tracking-wider">RESTRICTED ACCESS</h1>
-                <p className="text-slate-400 mt-2 text-sm">보안 비밀번호를 입력해주세요.</p>
-              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-lg text-center text-white text-lg tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
-                  placeholder="••••••"
-                  autoFocus
-                />
-                {error && <p className="text-red-500 text-sm text-center font-medium animate-pulse">{error}</p>}
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  ENTER SYSTEM
-                </button>
-              </form>
+                {/* Guide Box */}
+                <div className="bg-blue-950/20 border border-blue-800/40 p-5 rounded-xl space-y-3">
+                  <h4 className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+                    <Info size={16} className="text-blue-400" />
+                    구글 스프레드시트 열(Column) 구성 가이드
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    구글 스프레드시트의 <strong>1행(헤더)</strong> 또는 각 열을 다음 순서대로 작성해 주세요:
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center text-xs">
+                    <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-700/60">
+                      <div className="text-slate-500 font-mono text-[10px] mb-1">A열 (1열)</div>
+                      <div className="font-bold text-blue-400">제목</div>
+                      <div className="text-[10px] text-slate-400 mt-1">예: 네이버</div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-700/60">
+                      <div className="text-slate-500 font-mono text-[10px] mb-1">B열 (2열)</div>
+                      <div className="font-bold text-purple-400">부제목</div>
+                      <div className="text-[10px] text-slate-400 mt-1">예: 검색 포털</div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-700/60">
+                      <div className="text-slate-500 font-mono text-[10px] mb-1">C열 (3열)</div>
+                      <div className="font-bold text-emerald-400">설명</div>
+                      <div className="text-[10px] text-slate-400 mt-1">예: 국내 최대 포털...</div>
+                    </div>
+                    <div className="p-2.5 bg-slate-900/80 rounded-lg border border-slate-700/60">
+                      <div className="text-slate-500 font-mono text-[10px] mb-1">D열 (4열)</div>
+                      <div className="font-bold text-amber-400">사이트주소</div>
+                      <div className="text-[10px] text-slate-400 mt-1">예: naver.com</div>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-slate-400 bg-slate-950/40 p-3 rounded-lg space-y-1">
+                    <div className="font-medium text-slate-300">💡 스프레드시트 공유 설정 방법:</div>
+                    <div>1. 구글 스프레드시트 우측 상단 <strong>[공유]</strong> 클릭</div>
+                    <div>2. 일반 액세스를 <strong>[링크가 있는 모든 사용자]</strong> 및 <strong>[뷰어]</strong>로 설정</div>
+                    <div>3. <strong>[링크 복사]</strong> 후 위의 입력란에 붙여넣고 저장하세요.</div>
+                  </div>
+                </div>
+
+                {/* Preview List */}
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+                    <Table size={16} className="text-slate-400" />
+                    현재 불러온 사이트 ({sites.length}개)
+                  </h4>
+
+                  {sites.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-950/30 rounded-xl border border-slate-800 text-slate-500 text-xs">
+                      불러온 사이트 데이터가 없습니다. 상단에 구글 스프레드시트 링크를 등록해주세요.
+                    </div>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {sites.map((site, index) => (
+                        <div 
+                          key={site.id || index} 
+                          className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800 text-xs"
+                        >
+                          <div className="flex-1 min-w-0 mr-3">
+                            <div className="flex items-center gap-2 font-medium text-slate-200 truncate">
+                              <span>{site.title}</span>
+                              {site.subtitle && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">
+                                  {site.subtitle}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-slate-500 truncate mt-0.5">{site.description}</div>
+                          </div>
+                          <div className="text-slate-400 font-mono text-[11px] truncate max-w-[140px]">
+                            {site.url}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         );
       };
 
-      // --- COMPONENT: App ---
+      // --- MAIN APP COMPONENT ---
       const App = () => {
-        const [isAppUnlocked, setIsAppUnlocked] = useState(false);
         const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
         const [searchQuery, setSearchQuery] = useState('');
         const [sites, setSites] = useState([]);
-        const [loading, setLoading] = useState(true);
-        const [isDbConnected, setIsDbConnected] = useState(false);
+        const [loading, setLoading] = useState(false);
+        const [errorMessage, setErrorMessage] = useState(null);
+        const [lastUpdated, setLastUpdated] = useState(null);
+
+        const loadSites = useCallback(async (customUrl) => {
+          const sheetUrl = (customUrl !== undefined ? customUrl : getSavedSheetUrl()).trim();
+          
+          if (!sheetUrl) {
+            const cached = getCachedSites();
+            setSites(cached);
+            setErrorMessage(null);
+            return;
+          }
+
+          setLoading(true);
+          setErrorMessage(null);
+
+          try {
+            const fetchedSites = await fetchSitesFromGoogleSheet(sheetUrl);
+            setSites(fetchedSites);
+            setLastUpdated(new Date());
+            setErrorMessage(null);
+          } catch (err) {
+            console.error('Failed to load sheet:', err);
+            setErrorMessage(err?.message || '스프레드시트 데이터를 불러오지 못했습니다.');
+            const cached = getCachedSites();
+            if (cached.length > 0 && sites.length === 0) {
+              setSites(cached);
+            }
+          } finally {
+            setLoading(false);
+          }
+        }, [sites.length]);
 
         useEffect(() => {
-          const unlocked = sessionStorage.getItem('gakbbul_unlocked');
-          if (unlocked === 'true') {
-            setIsAppUnlocked(true);
+          const cached = getCachedSites();
+          if (cached.length > 0) {
+            setSites(cached);
           }
-          setLoading(false);
+          loadSites();
         }, []);
 
-        useEffect(() => {
-          if (!isAppUnlocked) return;
-          const unsubscribe = subscribeToSites(
-            (updatedSites) => {
-              setSites(updatedSites);
-              setIsDbConnected(true);
-            },
-            (error) => {
-              setIsDbConnected(false);
-            }
+        const filteredSites = sites.filter(site => {
+          const query = searchQuery.toLowerCase().trim();
+          if (!query) return true;
+
+          return (
+            (site.title && site.title.toLowerCase().includes(query)) ||
+            (site.subtitle && site.subtitle.toLowerCase().includes(query)) ||
+            (site.description && site.description.toLowerCase().includes(query)) ||
+            (site.name && site.name.toLowerCase().includes(query)) ||
+            (site.url && site.url.toLowerCase().includes(query))
           );
-          return () => unsubscribe();
-        }, [isAppUnlocked]);
-
-        const handleUnlock = () => {
-          setIsAppUnlocked(true);
-          sessionStorage.setItem('gakbbul_unlocked', 'true');
-        };
-
-        const filteredSites = sites.filter(site => 
-          site.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          site.description.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-        if (loading) return null;
-
-        if (!isAppUnlocked) {
-          return <LockScreen onUnlock={handleUnlock} />;
-        }
+        });
 
         return (
-          <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-500/30">
+          <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-500/30 flex flex-col">
             {/* Header */}
-            <header className="sticky top-0 z-40 w-full border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md supports-[backdrop-filter]:bg-slate-950/60">
+            <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md supports-[backdrop-filter]:bg-slate-950/60">
               <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
-                <div className="flex-shrink-0">
-                  <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-blue-400">
                     GAKBBUL
                   </h1>
                 </div>
 
+                {/* Search Bar */}
                 <div className="flex-1 max-w-xl relative">
                   <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="검색어를 입력하세요..."
-                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50 focus:bg-slate-900 transition-all"
+                      placeholder="제목, 부제목, 설명, 사이트 검색..."
+                      className="w-full bg-slate-900/60 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:border-blue-500/60 focus:bg-slate-900 transition-all placeholder:text-slate-500"
                     />
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => setIsAdminModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  <Settings size={18} />
-                  <span>사이트 관리</span>
-                </button>
+                {/* Header Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => loadSites()}
+                    disabled={loading}
+                    title="데이터 새로고침"
+                    className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl border border-transparent hover:border-slate-700 transition-all"
+                  >
+                    <RefreshCw size={18} className={loading ? 'animate-spin text-blue-400' : ''} />
+                  </button>
+
+                  <button 
+                    onClick={() => setIsAdminModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-200 bg-slate-900/80 hover:bg-slate-800 hover:text-white border border-slate-700/80 rounded-xl transition-all shadow-sm whitespace-nowrap"
+                  >
+                    <Settings size={18} className="text-blue-400" />
+                    <span>사이트 관리</span>
+                  </button>
+                </div>
               </div>
             </header>
 
             {/* Main Content */}
-            <main className="container mx-auto px-4 py-8">
-              {filteredSites.length === 0 ? (
+            <main className="container mx-auto px-4 py-8 flex-1">
+              {/* Error Banner */}
+              {errorMessage && (
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-start gap-3 text-red-300 text-sm">
+                  <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-red-200">스프레드시트 연동 알림</div>
+                    <div className="text-xs text-red-300/90 mt-1">{errorMessage}</div>
+                  </div>
+                  <button
+                    onClick={() => setIsAdminModalOpen(true)}
+                    className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg text-xs font-semibold border border-red-500/30 transition-colors"
+                  >
+                    설정 열기
+                  </button>
+                </div>
+              )}
+
+              {/* Empty state when no sites */}
+              {sites.length === 0 && !loading && (
+                <div className="flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
+                  <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mb-4 text-blue-400">
+                    <Sparkles size={32} />
+                  </div>
+                  <h2 className="text-xl font-bold text-white mb-2">등록된 웹사이트가 없습니다</h2>
+                  <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                    구글 스프레드시트 링크를 등록하여<br />
+                    <code className="text-blue-400 bg-slate-900 px-2 py-0.5 rounded text-xs">[제목] [부제목] [설명] [사이트주소]</code><br />
+                    형식으로 웹사이트 목록을 관리해보세요.
+                  </p>
+                  <button
+                    onClick={() => setIsAdminModalOpen(true)}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 text-sm"
+                  >
+                    <Settings size={18} />
+                    구글 스프레드시트 연동하기
+                  </button>
+                </div>
+              )}
+
+              {/* Search empty state */}
+              {sites.length > 0 && filteredSites.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                   <Search size={48} className="mb-4 opacity-20" />
-                  <p className="text-lg">검색 결과가 없습니다.</p>
+                  <p className="text-lg text-slate-400">'{searchQuery}'에 대한 검색 결과가 없습니다.</p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-3 text-xs text-blue-400 hover:underline"
+                  >
+                    검색어 초기화
+                  </button>
                 </div>
-              ) : (
+              )}
+
+              {/* Cards Grid */}
+              {filteredSites.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredSites.map(site => (
+                  {filteredSites.map((site) => (
                     <SiteCard key={site.id} site={site} />
                   ))}
                 </div>
               )}
             </main>
 
-            {/* Modals */}
+            {/* Footer */}
+            <footer className="border-t border-slate-800/60 py-6 text-center text-xs text-slate-500">
+              <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <span>© GAKBBUL Dashboard</span>
+                {lastUpdated && (
+                  <span className="text-slate-600 text-[11px]">
+                    마지막 동기화: {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </footer>
+
+            {/* Admin Modal */}
             <AdminModal 
               isOpen={isAdminModalOpen} 
               onClose={() => setIsAdminModalOpen(false)} 
               sites={sites}
-              isDbConnected={isDbConnected}
+              onRefresh={loadSites}
+              isLoading={loading}
             />
           </div>
         );
